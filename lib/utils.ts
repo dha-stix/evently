@@ -21,8 +21,8 @@ export const formatShortDate = (iso: string, timeZone?: string) =>
   fmt(iso, { weekday: "short", month: "short", day: "numeric" }, timeZone);
 export const formatLongDate = (iso: string, timeZone?: string) =>
   fmt(iso, { weekday: "long", month: "long", day: "numeric", year: "numeric" }, timeZone);
-export const formatMonth = (iso: string) => fmt(iso, { month: "short" }).toUpperCase();
-export const formatDay = (iso: string) => fmt(iso, { day: "2-digit" });
+export const formatMonth = (iso: string, timeZone?: string) => fmt(iso, { month: "short" }, timeZone).toUpperCase();
+export const formatDay = (iso: string, timeZone?: string) => fmt(iso, { day: "2-digit" }, timeZone);
 
 /** "6:00 PM GMT+1" */
 export const formatTime = (iso: string, timeZone?: string) =>
