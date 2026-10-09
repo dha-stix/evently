@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+/* Design tokens — shared by every page. Change brand colours here. */
+@theme {
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+
+  --color-ink: #111318;
+  --color-ink-soft: #3a3f4c;
+  --color-muted: #5a6070;
+  --color-subtle: #7a8090;
+  --color-line: #e4e6eb;
+  --color-line-soft: #eef0f3;
+  --color-line-strong: #d5d8e0;
+  --color-canvas: #f5f6f8;
+  --color-hover: #f1f2f5;
+
+  --color-brand-50: #f7f6ff;
+  --color-brand-100: #eeecfd;
+  --color-brand-200: #dcd8fb;
+  --color-brand-300: #b7aeff;
+  --color-brand-500: #6e5cf6;
+  --color-brand-600: #4f3fe0;
+  --color-brand-700: #3a2bc0;
+  --color-brand-800: #2b2090;
+
+  --color-night-900: #16132e;
+  --color-night-800: #1e1a4d;
+  --color-night-700: #2e2966;
+  --color-night-300: #c9c5e8;
+
+  --color-success-50: #e7f6ee;
+  --color-success-200: #9fddb9;
+  --color-success-600: #157f4a;
+  --color-success-700: #136c3f;
+
+  --color-warning-50: #fef3e2;
+  --color-warning-700: #93400d;
+
+  --color-danger-50: #fdecea;
+  --color-danger-200: #f3b8b2;
+  --color-danger-600: #b42318;
+  --color-danger-700: #8f1d14;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-white font-sans text-ink antialiased;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-display tracking-tight;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-brand-600;
+  }
+}
+
+/* Reusable layout + form utilities */
+@utility container-page {
+  @apply mx-auto w-full max-w-[1240px] px-4 sm:px-6;
+}
+
+@utility field-control {
+  @apply h-12 w-full rounded-[10px] border border-line-strong bg-white px-3.5 text-[15px] text-ink outline-none transition placeholder:text-subtle focus:border-brand-600 focus:ring-4 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-canvas;
+}
+
+@utility card {
+  @apply rounded-2xl border border-line bg-white;
+}
+
+@utility eyebrow {
+  @apply text-sm font-extrabold tracking-[0.08em] text-brand-600 uppercase;
+}

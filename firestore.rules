@@ -1,0 +1,193 @@
+rules_version = '2';
+
+// Security rules for Evently. Deploy with: firebase deploy --only firestore:rules
+//
+// All events are free. Each registration is one attendee, and an email address can
+// register only once per event.
+//
+//   users/{uid}                                private to that user
+//   events/{eventId}                           public read, owner writes
+//   events/{eventId}/attendees/{ticketCode}    one ticket readable by its code; full list + check-in: owner
+//   events/{eventId}/contacts/{ticketCode}     email/phone, readable by the event owner only
+//   events/{eventId}/registrations/{emailKey}  one per email (hashed): stops duplicate registrations
+//
+// Attendees are not signed in, so registering is a public write. It is limited to exactly
+// the documents and values the app's registration transaction produces.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // True when the update touches only the listed fields.
+    function changedOnly(keys) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
+    }
+
+    function eventPath(eventId) {
+      return /databases/$(database)/documents/events/$(eventId);
+    }
+
+    function registrationPath(eventId, emailKey) {
+      return /databases/$(database)/documents/events/$(eventId)/registrations/$(emailKey);
+    }
+
+    function isEventOwner(eventId) {
+      return signedIn() && request.auth.uid == get(eventPath(eventId)).data.ownerId;
+    }
+
+    // Dates are Firestore Timestamps. Registration closes at `registrationClosesAt`
+    // (the deadline, or the event's end) and is compared with the SERVER clock.
+    function validSchedule(e) {
+      return e.startsAt is timestamp
+        && e.endsAt is timestamp
+        && e.registrationClosesAt is timestamp
+        && e.endsAt > e.startsAt
+        && e.registrationClosesAt <= e.endsAt
+        && (e.registrationDeadline == null || e.registrationDeadline is timestamp)
+        && (e.capacity == null || (e.capacity is int && e.capacity >= e.registeredCount));
+    }
+
+    function sha256Hex(text) {
+      return hashing.sha256(text).toHexString().lower();
+    }
+
+    /* --------------------------------- Users -------------------------------- */
+
+    match /users/{uid} {
+      allow read, create, update: if signedIn() && request.auth.uid == uid;
+      allow delete: if false;
+    }
+
+    /* -------------------------------- Events -------------------------------- */
+
+    match /events/{eventId} {
+      function isOwner() {
+        return signedIn() && request.auth.uid == resource.data.ownerId;
+      }
+
+      // A registration takes exactly one seat, never past capacity, and may auto-close
+      // the event in the same write once it is full.
+      function takesOneSeat() {
+        let before = resource.data;
+        let after = request.resource.data;
+        let autoClose = changedOnly(['registeredCount', 'status'])
+          && after.status == 'closed'
+          && before.capacity != null
+          && after.registeredCount >= before.capacity;
+        return before.status == 'open'
+          && request.time < before.registrationClosesAt
+          && after.registeredCount == before.registeredCount + 1
+          && (before.capacity == null || after.registeredCount <= before.capacity)
+          && (changedOnly(['registeredCount']) || autoClose);
+      }
+
+      allow read: if true;
+
+      // New events must start in the future.
+      allow create: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.status in ['open', 'draft']
+        && request.resource.data.registeredCount == 0
+        && request.resource.data.checkedInCount == 0
+        && request.resource.data.coverUrl == null
+        && request.resource.data.createdAt == request.time
+        && validSchedule(request.resource.data)
+        && request.resource.data.startsAt > request.time;
+
+      // The owner can edit the event (not its ownership). If they change the dates or the
+      // attendee limit, the schedule must still make sense and the limit can't drop below
+      // the people already registered. Attendees can only take a seat when registering.
+      allow update: if (isOwner()
+          && request.resource.data.ownerId == resource.data.ownerId
+          && (!request.resource.data.diff(resource.data).affectedKeys()
+                .hasAny(['startsAt', 'endsAt', 'registrationDeadline', 'registrationClosesAt', 'capacity'])
+              || validSchedule(request.resource.data)))
+        || takesOneSeat();
+
+      allow delete: if isOwner();
+
+      /* ------------------------ Attendees (ticket records) ---------------------- */
+
+      match /attendees/{ticketCode} {
+        function contactPath() {
+          return /databases/$(database)/documents/events/$(eventId)/contacts/$(ticketCode);
+        }
+
+        function isValidRegistration() {
+          let a = request.resource.data;
+          let e = get(eventPath(eventId)).data;
+          return e.status == 'open'
+            && request.time < e.registrationClosesAt
+            && a.keys().hasOnly(['id', 'ticketCode', 'eventId', 'ownerId', 'eventTitle', 'name',
+                                 'registeredAt', 'checkedInAt', 'emailKey'])
+            && a.registeredAt == request.time
+            && a.id == ticketCode
+            && a.ticketCode == ticketCode
+            && a.eventId == eventId
+            && a.ownerId == e.ownerId
+            && a.name is string && a.name.size() > 0 && a.name.size() <= 120
+            && a.checkedInAt == null
+            // the seat is taken in the same transaction
+            && getAfter(eventPath(eventId)).data.registeredCount == e.registeredCount + 1
+            // contact details are written in the same transaction
+            && existsAfter(contactPath())
+            // and so is this email's (one and only) registration entry, pointing at this ticket
+            && a.emailKey is string && a.emailKey.size() == 64
+            && !exists(registrationPath(eventId, a.emailKey))
+            && getAfter(registrationPath(eventId, a.emailKey)).data.ticketHash == sha256Hex(ticketCode);
+        }
+
+        // A single ticket can be read by anyone who has its code (confirmation page);
+        // the full guest list is only for the organizer.
+        allow get: if true;
+        allow list: if isEventOwner(eventId);
+        allow create: if isValidRegistration();
+        // Check-in (checkedInAt) and any edits are owner-only.
+        allow update, delete: if isEventOwner(eventId);
+      }
+
+      /* -------------- Contacts (private: email, phone, company) --------------- */
+
+      match /contacts/{ticketCode} {
+        function attendeePath() {
+          return /databases/$(database)/documents/events/$(eventId)/attendees/$(ticketCode);
+        }
+
+        // Anyone can submit contact details, but only together with a new registration.
+        allow create: if request.resource.data.keys().hasOnly(['email', 'phone', 'company'])
+          && request.resource.data.email is string
+          && request.resource.data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$')
+          && !exists(attendeePath())
+          && existsAfter(attendeePath());
+        allow read, update, delete: if isEventOwner(eventId);
+      }
+
+      /* ------- Registrations (one per email; no personal data stored) -------- */
+
+      match /registrations/{emailKey} {
+        // Readable so the app can tell an attendee their email is already registered.
+        allow get: if true;
+        allow list: if isEventOwner(eventId);
+        // Created once, together with a registration that takes a seat. Never overwritten.
+        allow create: if request.resource.data.keys().hasOnly(['ticketHash', 'createdAt'])
+          && request.resource.data.ticketHash is string
+          && request.resource.data.ticketHash.size() == 64
+          && request.resource.data.createdAt == request.time
+          && getAfter(eventPath(eventId)).data.registeredCount == get(eventPath(eventId)).data.registeredCount + 1;
+        allow update: if false;
+        allow delete: if isEventOwner(eventId);
+      }
+    }
+
+    /* ------------------ Collection-group reads of attendees ------------------ */
+    match /{path=**}/attendees/{ticketCode} {
+      allow get: if true;
+      // Homepage ticket lookup: a single result for an exact ticket code,
+      // or the dashboard's "Recent registrations" for the signed-in organizer.
+      allow list: if request.query.limit <= 1
+        || (request.auth != null && resource.data.ownerId == request.auth.uid);
+    }
+  }
+}
