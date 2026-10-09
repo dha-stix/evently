@@ -1,6 +1,6 @@
 // Firebase client SDK setup. Keys come from .env.local (see .env.example).
 import { getApps, initializeApp, type FirebaseApp } from "firebase/app";
-import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "firebase/app-check";
 import { getAuth, type Auth } from "firebase/auth";
 import { getFirestore, initializeFirestore, type Firestore } from "firebase/firestore";
 import { getStorage, type FirebaseStorage } from "firebase/storage";
@@ -17,8 +17,9 @@ const firebaseConfig = {
 export const isFirebaseConfigured = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId);
 
 /**
- * App Check (anti-spam): every Firestore/Storage request carries a reCAPTCHA v3 token proving it
- * came from your real site, not a script. Turn on "Enforce" in Firebase → App Check once it works.
+ * App Check (anti-spam): every Firestore/Storage request carries an invisible reCAPTCHA token (a
+ * score-based key from Google Cloud → reCAPTCHA) proving it came from your real site, not a script.
+ * Turn on "Enforce" in Firebase → App Check once it works.
  */
 const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
 let appCheckStarted = false;
@@ -33,7 +34,7 @@ function startAppCheck(instance: FirebaseApp) {
       process.env.NEXT_PUBLIC_APPCHECK_DEBUG_TOKEN || true;
   }
   try {
-    initializeAppCheck(instance, { provider: new ReCaptchaV3Provider(recaptchaSiteKey), isTokenAutoRefreshEnabled: true });
+    initializeAppCheck(instance, { provider: new ReCaptchaEnterpriseProvider(recaptchaSiteKey), isTokenAutoRefreshEnabled: true });
   } catch {
     // already initialised (hot reload)
   }
