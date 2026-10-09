@@ -11,6 +11,7 @@ import { getEventPhase } from "@/lib/utils";
 import { useNow } from "@/hooks/use-now";
 import type { EventItem, EventPhase } from "@/types";
 import { EventCard } from "./event-card";
+import { Stagger, StaggerItem } from "@/components/motion";
 
 type Filter = "all" | EventPhase;
 
@@ -47,11 +48,13 @@ export function EventsSection({ events }: { events: EventItem[] }) {
       </div>
 
       {visible.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3">
+        <Stagger key={filter} onMount className="grid gap-4 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3">
           {visible.map((e) => (
-            <EventCard key={e.id} event={e} />
+            <StaggerItem key={e.id} className="flex">
+              <EventCard event={e} />
+            </StaggerItem>
           ))}
-        </div>
+        </Stagger>
       ) : (
         <EmptyState
           icon={CalendarPlus}

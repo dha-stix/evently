@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CountUp } from "@/components/motion";
 
 export function StatCard({
   label,
@@ -26,7 +27,7 @@ export function StatCard({
           </span>
         )}
       </div>
-      <span className="font-display text-3xl font-bold tracking-tight">{value}</span>
+      <span className="font-display text-3xl font-bold tracking-tight">{typeof value === "number" ? <CountUp value={value} /> : value}</span>
       {note && <span className="text-[13px] text-muted">{note}</span>}
       {children}
     </div>

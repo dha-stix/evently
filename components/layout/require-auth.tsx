@@ -12,9 +12,13 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!loading && !user) router.replace(`/auth/login?next=${encodeURIComponent(pathname)}`);
+    if (!loading && !user)
+      router.replace(`/auth/login?next=${encodeURIComponent(pathname)}`);
   }, [loading, user, router, pathname]);
 
-  if (loading || !user) return <LoadingState label="Checking your session…" className="min-h-[60vh]" />;
+  if (loading || !user)
+    return (
+      <LoadingState label="Checking your session…" className="min-h-[60vh]" />
+    );
   return <>{children}</>;
 }

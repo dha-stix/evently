@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { CalendarX, Lock, Search, SearchX } from "lucide-react";
 import { Input } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
+import { CountUp } from "@/components/motion";
 import { EmptyState, LoadingState } from "@/components/ui/page-states";
 import { ButtonLink } from "@/components/ui/button";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -76,7 +77,7 @@ export function CheckInView({ id }: { id: string }) {
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              <StatCard label="Checked in" value={<>{event.checkedInCount} <span className="text-base text-muted">/ {event.registeredCount}</span></>} className="p-4" />
+              <StatCard label="Checked in" value={<><CountUp value={event.checkedInCount} /> <span className="text-base text-muted">/ {event.registeredCount}</span></>} className="p-4" />
               <StatCard label="Still expected" value={Math.max(0, event.registeredCount - event.checkedInCount)} className="p-4" />
               <StatCard label="Starts at" value={formatTime(event.startsAt)} className="col-span-2 p-4 sm:col-span-1" />
             </div>

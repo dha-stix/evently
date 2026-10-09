@@ -11,7 +11,7 @@ export function EventCard({ event }: { event: EventItem }) {
   return (
     <Link
       href={`/events/${event.id}`}
-      className="card group flex flex-col overflow-hidden transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(17,19,24,0.08)]"
+      className="card group flex w-full flex-col overflow-hidden transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(17,19,24,0.08)]"
     >
       <EventCover cover={event.cover} coverUrl={event.coverUrl} startsAt={event.startsAt} className="h-32">
         <StatusBadge event={event} className="bg-white/95" />
